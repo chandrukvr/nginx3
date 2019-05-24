@@ -1,0 +1,7 @@
+steps:
+- name: 'gcr.io/cloud-builders/go'
+  args: ['install', '.']
+  env: ['PROJECT_ROOT=nginx3']
+- name: 'gcr.io/cloud-builders/go'
+  args: ['build', 'nginx3']
+  env: ['PROJECT_ROOT=nginx3']  
