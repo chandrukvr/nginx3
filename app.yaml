@@ -1,11 +1,12 @@
+service: nginx-service
 runtime: python27
 api_version: 1
-threadsafe: yes
+threadsafe: true
 
 handlers:
 - url: .*
-  script: main.app
-
+  script: app.app
+  
 libraries:
-- name: webapp2
-  version: "2.5.2"
+- name: flask
+version: "0.12"

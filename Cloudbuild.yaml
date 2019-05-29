@@ -1,39 +1,37 @@
-# [START cloudbuild-trigger-cd]
-# This step clones the gke-dn-deploy repository
-- name: 'github_chandrukvr-nginx3'
-  id: Clone env repository
+steps:
+# This step runs the unit tests on the app
+- name: 'python:3.7-slim'
+  id: Test
   entrypoint: /bin/sh
   args:
-  - '-c'
-  - |
-    gcloud source repos clone gke-dn-deploy && \
-    cd gke-dn-deploy && \
-    git checkout master && \
-    git config user.email $(gcloud auth list --filter=status:ACTIVE --format='value(account)')
+  - -c
+  - 'pip install flask && python test_app.py -v'
 
-# This step generates the new manifest
-- name: 'gcr.io/cloud-builders/gcloud'
-  id: Generate manifest
-  entrypoint: /bin/sh
+# This step builds the container image.
+- name: 'gcr.io/cloud-builders/docker-nginx'
+  id: Build
   args:
-  - '-c'
-  - |
-     sed "s/GOOGLE_CLOUD_PROJECT/${PROJECT_ID}/g" kubernetes.yaml.tpl | \
-     sed "s/COMMIT_SHA/${SHORT_SHA}/g" > gke-dn-deploy/kubernetes.yaml
+  - 'build'
+  - '-t'
+  - 'gcr.io/$PROJECT_ID/docker-nginx:$SHORT_SHA'
+  - '.'
 
-# This step pushes the manifest back to gke-sb-deploy
-- name: 'gcr.io/cloud-builders/gcloud'
-  id: Push manifest
-  entrypoint: /bin/sh
+# This step pushes the image to Container Registry
+# The PROJECT_ID and SHORT_SHA variables are automatically
+# replaced by Cloud Build.
+- name: 'gcr.io/cloud-builders/docker-nginx'
+  id: Push
   args:
-  - '-c'
-  - |
-    set -x && \
-    cd gke-dn-deploy && \
-    git add kubernetes.yaml && \
-    git commit -m "Deploying image gcr.io/${PROJECT_ID}/docker-nginx:${SHORT_SHA}
-    Built from commit ${COMMIT_SHA} of repository github_chandrukvr_docker-nginx
-    Author: $(git log --format='%an <%ae>' -n 1 HEAD)" && \
-    git push origin master
+  - 'push'
+  - 'gcr.io/$PROJECT_ID/docker-nginx:$SHORT_SHA'
+# [END cloudbuild]
 
-# [END cloudbuild-trigger-cd]
+
+# This step deploys the new version of our container image
+# in the nginx-cloudbuild App Engine.
+
+steps:
+- name: 'gcr.io/cloud-builders/docker-nginx'
+  args: [ 'build', '-t', 'gcr.io/$PROJECT_ID/docker-nginx:$SHORT_SHA' ]
+images:
+- 'gcr.io/$PROJECT_ID/docker-nginx:$SHORT_SHA'
